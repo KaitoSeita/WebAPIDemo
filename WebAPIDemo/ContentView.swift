@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  WebAPIDemo
 //
-//  Created by セイタカイト on 2023/11/05.
+//  Created by kaito-seita on 2023/11/05.
 //
 
 import SwiftUI
