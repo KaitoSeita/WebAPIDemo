@@ -30,7 +30,7 @@ extension APIService {
     
     func sendRequest<Request: APIRequestTypeProtocol>(request: Request) async -> Result<Request.Response, Error> {
         do {
-            let result: (Data, URLResponse)? = try await session.data(for: request.buildURLRequest())
+            let result = try? await session.data(for: request.buildURLRequest())
 
             guard result?.1 is HTTPURLResponse else {
                 return .failure(APIError.noResponse)
