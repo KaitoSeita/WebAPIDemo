@@ -8,7 +8,7 @@
 import SwiftUI
 
 protocol APIRequestTypeProtocol {
-    associatedtype Response: Codable        // ArticleとUserで使い分けたいので準拠先で定義させるようにする
+    associatedtype Response: Codable
     
     var baseURL: URL? { get }
     var httpMethod: String { get }
@@ -20,7 +20,7 @@ protocol APIRequestTypeProtocol {
 struct ArticleSortedByTagsRequest: APIRequestTypeProtocol {
     typealias Response = [Article]
     
-    let baseURL: URL? = URL(string: "https://qiita.com/api/v2/tags")!      // エンドポイントともいう
+    let baseURL: URL? = URL(string: "https://qiita.com/api/v2/tags")!
     let httpMethod: String = "GET"
     var relativePath: String = ""
     let page: String
