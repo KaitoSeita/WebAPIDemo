@@ -86,6 +86,7 @@ private struct ListItemView: View {
                 HStack {
                     ForEach(tags, id: \.self) { tag in
                         Text(tag.name)
+                            .lineLimit(1)
                             .font(.system(size: 10))
                             .padding(.all, 5)
                             .background(.gray.opacity(0.2))

@@ -12,7 +12,7 @@ protocol APIServiceProtocol {
     var session: URLSession { get }
     var decoder: JSONDecoder { get }
     
-    func sendRequest<Request: APIRequestTypeProtocol>(request: Request) async throws -> Result<Request.Response, Error>
+    func sendRequest<Request: APIRequestTypeProtocol>(request: Request) async -> Result<Request.Response, Error>
 }
 
 struct APIService: APIServiceProtocol {
