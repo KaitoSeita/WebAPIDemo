@@ -13,10 +13,31 @@ QiitaにAPIの通信処理について詳しい内容を掲載しています。
 ### MVVM
 #### アーキテクチャの概要
 
-## 動作フロー図
-
 
 ## 具体的な動作とそのコードについて
+#### 無限スクロール
+無限スクロールとは、記事を一度に大量に取得するものとは異なり、少しずつ取得してリストの下までいったら自動で次の記事を取得することで、データが存在する限りずっと下にスクロールできるというものです。一度の記事取得では量が少ないので、サーバーへの負荷が少なく、表示速度も速いというメリットがあります。一方で、リクエスト回数が増えてしまう可能性もあるので、条件にあった活用が必要です。    
+
+![ezgif com-video-to-gif (3)](https://github.com/KaitoSeita/WebAPIDemoApp/assets/113151647/5ade559b-b913-4b37-8e61-5b03fd686a6a)    
+
+コードについて説明していきます。`ViewModel`に`id`を引数に指定したメソッドを定義しました。記事データが入った配列に対してインデックスで`article.endIndex - 5`として指定しています。一番最後の記事から5つ前の記事であれば、`page`を加算して新しい記事を取得するという感じになっています。
+```Swift
+func loadNext(id: UUID) {
+    if article[article.endIndex - 5].id == id {
+        currentPage += 1
+        getArticleSortedByTags()
+    }
+}
+```
+これは呼び出し元のコードです。リストの各行が表示される度に、データが最後から5つ前かどうかをチェックするようにしています。
+```Swift
+List(homeViewModel.article) { data in
+    ...
+    .onAppear {
+        homeViewModel.loadNext(id: data.id)
+    }
+}
+```
 #### APIRequest
 まずはプロトコルからです。プロトコルにおいては必要な変数、`Response`を格納する型を定義します。`Response`をあえて`associatedtype`としていることについて説明します。今回はリクエスト内容が、タグを含む記事の一覧表示のみとなっていますが、現実的にはユーザー情報だけの取得であったり、タグではなく通常検索での取得といった複数のケースが考えられ、プロトコルだけは共通して使用したいため、`Response`の型をそれぞれで変更できるようにしています。
 ```Swift
@@ -65,27 +86,7 @@ struct ArticleSortedByTagsRequest: APIRequestTypeProtocol {
 ```
 #### APIService(クライアント)
 
-#### 無限スクロール
-無限スクロールとは、記事を一度に大量に取得するものとは異なり、少しずつ取得してリストの下までいったら自動で次の記事を取得することで、データが存在する限りずっと下にスクロールできるというものです。一度の記事取得では量が少ないので、サーバーへの負荷が少なく、表示速度も速いというメリットがあります。一方で、リクエスト回数が増えてしまう可能性もあるので、条件にあった活用が必要です。
-コードについて説明していきます。`ViewModel`に`id`を引数に指定したメソッドを定義しました。記事データが入った配列に対してインデックスで`article.endIndex - 5`として指定しています。一番最後の記事から5つ前の記事であれば、`page`を加算して新しい記事を取得するという感じになっています。
-```Swift
-func loadNext(id: UUID) {
-    if article[article.endIndex - 5].id == id {
-        currentPage += 1
-        getArticleSortedByTags()
-    }
-}
-```
-これは呼び出し元のコードです。リストの各行が表示される度に、データが最後から5つ前かどうかをチェックするようにしています。
-```Swift
-List(homeViewModel.article) { data in
-    ...
-    .onAppear {
-        homeViewModel.loadNext(id: data.id)
-    }
-}
-```
-#### 非同期処理とエラーハンドリング
+
 
 
 
