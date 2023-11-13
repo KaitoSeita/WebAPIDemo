@@ -12,8 +12,115 @@ QiitaにAPIの通信処理について詳しい内容を掲載しています。
 ## アーキテクチャ
 ### MVVM
 #### アーキテクチャの概要
+MVVMとは、`Model`、`View`、`ViewModel`の3つから構成されるアーキテクチャであり、`View`のイベント通知を`ViewModel`が取得して、それに応じた処理を行い、値を返します。`Model`は主にデータの構造などを定義します。今回はサーバを介した通信処理があるので、それは別で実装するようにしています。
+##### View
+`ViewModel`に対して画面表示時やタップ時にイベントを通知して、リスト表示、更新を行います。
+```Swift: HomeView.swift
+struct HomeView: View {
+    @StateObject var homeViewModel = HomeViewModel()
+    
+    @State private var page = 1
+    
+    var body: some View {
+        NavigationStack {
+            List(homeViewModel.article) { data in
+                ListItemView(title: data.title,
+                             user: data.user,
+                             likesCount: data.likesCount,
+                             createdDate: data.createdAt,
+                             viewCount: data.viewCount,
+                             tags: data.tags,
+                             url: data.url
+                )
+                .onAppear {
+                    homeViewModel.loadNext(id: data.id)
+                }
+            }
+            .listStyle(.plain)
+            .refreshable {
+                homeViewModel.initializeArticle()
+            }
+            .onAppear {
+                if homeViewModel.article.isEmpty {
+                    homeViewModel.initializeArticle()
+                }
+            }
+        }
+    }
+}
+```
+##### ViewModel
+`View`から受け取ったイベント通知に対して更新処理を行います。無限スクロールや初期化、データの追加などが行えるようにしています。
+```Swift: HomeViewModel.swift
+protocol HomeViewModelProtocol: ObservableObject {
+    func getArticleSortedByTags()
+    func initializeArticle()
+    func loadNext(id: UUID)
+}
 
+final class HomeViewModel: HomeViewModelProtocol {
+    @Published var article: [ArticleList] = []
+    @Published var errorMessage = ""
+    @Published var currentPage = 1
+    
+    let apiService = APIService()
+}
 
+extension HomeViewModel {
+    
+    func getArticleSortedByTags() {
+        ...
+    }
+    
+    func initializeArticle() {
+        ...
+    }
+    
+    func loadNext(id: UUID) {
+        ...
+    }
+    
+    private func dateFormatter(date: String) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZZZZ"
+        formatter.timeZone = TimeZone(secondsFromGMT: 9 * 60 * 60) // UTC+9時間
+        let formatDate = formatter.date(from: date)
+        formatter.dateFormat = "yyyy年MM月dd日"
+        
+        return formatter.string(from: formatDate!)
+    }
+    
+    private func setErrorMessage(error: Error) {
+        ...
+    }
+}
+```
+##### Model
+JSONに対応したデータ構造と、デコードしたデータに対応したデータ構造を定義しています。
+```Swift: Article.swift
+struct Article: Codable {
+    let comments_count: Int?
+    let created_at: String?
+    let likes_count: Int?
+    let tags: [Tags]
+    let title: String
+    let url: String
+    let user: User
+    let page_views_count: Int?
+}
+
+struct ArticleList: Identifiable {
+    let id = UUID()
+    let commentsCount: Int
+    let createdAt: String
+    let likesCount: Int
+    let tags: [Tags]
+    let title: String
+    let url: String
+    let user: User
+    let viewCount: Int
+}
+```
 ## 具体的な動作とそのコードについて
 #### 無限スクロール
 無限スクロールとは、記事を一度に大量に取得するものとは異なり、少しずつ取得してリストの下までいったら自動で次の記事を取得することで、データが存在する限りずっと下にスクロールできるというものです。一度の記事取得では量が少ないので、サーバーへの負荷が少なく、表示速度も速いというメリットがあります。一方で、リクエスト回数が増えてしまう可能性もあるので、条件にあった活用が必要です。    
