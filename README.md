@@ -19,7 +19,7 @@ QiitaにAPIの通信処理について詳しい内容を掲載しています。
 MVVMとは、`Model`、`View`、`ViewModel`の3つから構成されるアーキテクチャであり、`View`のイベント通知を`ViewModel`が取得して、それに応じた処理を行い、値を返します。`Model`は主にデータの構造などを定義します。今回はサーバを介した通信処理があるので、それは別で実装するようにしています。
 ##### View
 `ViewModel`に対して画面表示時やタップ時にイベントを通知して、リスト表示、更新を行います。
-```Swift: HomeView.swift
+```Swift
 struct HomeView: View {
     @StateObject var homeViewModel = HomeViewModel()
     
@@ -55,7 +55,7 @@ struct HomeView: View {
 ```
 ##### ViewModel
 `View`から受け取ったイベント通知に対して更新処理を行います。無限スクロールや初期化、データの追加などが行えるようにしています。
-```Swift: HomeViewModel.swift
+```Swift
 protocol HomeViewModelProtocol: ObservableObject {
     func getArticleSortedByTags()
     func initializeArticle()
@@ -101,7 +101,7 @@ extension HomeViewModel {
 ```
 ##### Model
 JSONに対応したデータ構造と、デコードしたデータに対応したデータ構造を定義しています。
-```Swift: Article.swift
+```Swift
 struct Article: Codable {
     let comments_count: Int?
     let created_at: String?
@@ -196,8 +196,68 @@ struct ArticleSortedByTagsRequest: APIRequestTypeProtocol {
 }
 ```
 #### APIService(クライアント)
+基本的な定義の部分は次のような感じです。`URLSession`と`JSONDecoder`をそれぞれ定義しています。
+```Swift
+protocol APIServiceProtocol {
+    
+    var session: URLSession { get }
+    var decoder: JSONDecoder { get }
+    
+    func sendRequest<Request: APIRequestTypeProtocol>(request: Request) async -> Result<Request.Response, Error>
+}
 
-
-
-
-
+struct APIService: APIServiceProtocol {
+    
+    let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        return URLSession(configuration: config)
+    }()
+    
+    let decoder: JSONDecoder = JSONDecoder()
+    
+}
+```
+つづいて本体です。`URLSession`ではよく、`URLSession.dataTask`を用いることが多いですが、これは非同期処理に対応していないため、`async throws`で定義される`URLSession.data`を使用しています。エラーが変数として取り出すことができないので、do-catch文を使用してエラーハンドリングしています。
+また、処理の成功、失敗は非同期な関数でよく使用される`Result`型で返却して、`ViewModel`側でswitchによる分岐をさせるようにしています。
+```Swift
+extension APIService {
+    
+    func sendRequest<Request: APIRequestTypeProtocol>(request: Request) async -> Result<Request.Response, Error> {
+        do {
+            let result = try? await session.data(for: request.buildURLRequest())
+            // レスポンスが存在するかどうか
+            guard result?.1 is HTTPURLResponse else {
+                return .failure(APIError.noResponse)
+            }
+            // レスポンスのステータスコードを確認
+            guard let response = result?.1 as? HTTPURLResponse, (200...299).contains(response.statusCode) else {
+                return .failure(APIError.invalidStatusCode)
+            }
+            // データが存在すればデコードを開始
+            if let data = result?.0 {
+                
+                let decodedData = try decoder.decode(Request.Response.self, from: data)
+                
+                return .success(decodedData)
+            } else {
+                return .failure(APIError.noData)
+            }
+        } catch {
+            // デコーディングエラーを判定
+            if error is DecodingError {
+                
+                return .failure(APIError.decodingError)
+            } else if let error = error as NSError? {
+                // 通常のエラーとタイムアウトを判定
+                if error.code == NSURLErrorTimedOut {
+                    
+                    return .failure(APIError.networkTimeOut)
+                } else {
+                    
+                    return .failure(APIError.unowned)
+                }
+            }
+        }
+    }
+}
+```
